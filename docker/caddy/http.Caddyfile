@@ -1,0 +1,10 @@
+# TLS_MODE=http: plain HTTP on port 80, no certificates. For your computer only: push notifications need HTTPS.
+{
+	auto_https off
+}
+
+import /etc/caddy/store.caddy
+
+:80 {
+	import store
+}

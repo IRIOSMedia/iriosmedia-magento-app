@@ -1,0 +1,8 @@
+# TLS_MODE=letsencrypt: Caddy gets certificates from Let's Encrypt for both domains and renews them by itself.
+# Needs public DNS records pointing to this server, and ports 80 and 443 open.
+import /etc/caddy/store.caddy
+
+{$LUMA_DOMAIN} {$HYVA_DOMAIN} {
+	tls {$ACME_EMAIL}
+	import store
+}

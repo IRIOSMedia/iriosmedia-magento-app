@@ -1,0 +1,8 @@
+# TLS_MODE=internal: HTTPS with certificates from Caddy's own local authority. For your computer, with *.localhost
+# domains; browsers trust it once you add Caddy's root certificate (see README.md, Quick start).
+import /etc/caddy/store.caddy
+
+{$LUMA_DOMAIN} {$HYVA_DOMAIN} {
+	tls internal
+	import store
+}

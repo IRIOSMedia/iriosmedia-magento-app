@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Runs Magento's bin/magento inside the php container, as www-data (the owner of the store files).
+#   bin/magento cache:flush
+#   bin/magento indexer:status
+set -euo pipefail
+cd "$(dirname "$0")/.."
+tty=()
+[[ -t 0 && -t 1 ]] || tty=(-T)
+exec docker compose exec "${tty[@]}" -u www-data php php bin/magento "$@"

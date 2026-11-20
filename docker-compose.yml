@@ -1,0 +1,190 @@
+# Magento 2 Open Source with the IRIOS Media module.
+#
+# Every value comes from .env (copy .env.example). Only Caddy publishes ports: it terminates HTTPS and passes the
+# requests to nginx, which runs Magento through PHP-FPM. Nothing else is reachable from outside the Docker network.
+#
+#   bin/setup.sh            installs or repairs the store (safe to re-run)
+#   docker compose ps       shows the services
+#   docker compose logs -f  follows their logs
+
+name: ${COMPOSE_PROJECT_NAME:-irios-magento-app}
+
+x-php: &php
+  build:
+    context: ./docker/php
+  image: ${COMPOSE_PROJECT_NAME:-irios-magento-app}-php:8.3
+  restart: unless-stopped
+  environment: &php-env
+    PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-2G}
+    PHP_TIMEZONE: ${MAGENTO_TIMEZONE:-UTC}
+    PHP_FPM_PM: ${PHP_FPM_PM:-dynamic}
+    PHP_FPM_MAX_CHILDREN: ${PHP_FPM_MAX_CHILDREN:-10}
+    PHP_FPM_START_SERVERS: ${PHP_FPM_START_SERVERS:-2}
+    PHP_FPM_MIN_SPARE_SERVERS: ${PHP_FPM_MIN_SPARE_SERVERS:-1}
+    PHP_FPM_MAX_SPARE_SERVERS: ${PHP_FPM_MAX_SPARE_SERVERS:-3}
+    PHP_FPM_IDLE_TIMEOUT: ${PHP_FPM_IDLE_TIMEOUT:-30s}
+    COMPOSER_MEMORY_LIMIT: "-1"
+  volumes:
+    - code:/var/www/html
+    - media:/var/www/html/pub/media
+  depends_on:
+    db:
+      condition: service_healthy
+    opensearch:
+      condition: service_healthy
+    valkey:
+      condition: service_healthy
+    valkey-sessions:
+      condition: service_healthy
+
+services:
+  # Database. MariaDB 11.4 is a long-term support release, supported by Magento 2.4.8.
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-magento}
+      MARIADB_USER: ${DB_USER:-magento}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+      MARIADB_AUTO_UPGRADE: "1"
+    command:
+      - --innodb-buffer-pool-size=${DB_BUFFER_POOL_SIZE:-1G}
+      - --max-connections=${DB_MAX_CONNECTIONS:-150}
+      - --tmp-table-size=${DB_TMP_TABLE_SIZE:-64M}
+      - --max-heap-table-size=${DB_TMP_TABLE_SIZE:-64M}
+      - --sort-buffer-size=${DB_SORT_BUFFER_SIZE:-2M}
+      - --join-buffer-size=${DB_JOIN_BUFFER_SIZE:-2M}
+      - --max-allowed-packet=64M
+    volumes:
+      - db:/var/lib/mysql
+    mem_limit: ${DB_MEM_LIMIT:-0}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Catalog search. Single node, without the security plugin: it is only reachable inside the Docker network.
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms${OPENSEARCH_HEAP:-1g} -Xmx${OPENSEARCH_HEAP:-1g}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch:/usr/share/opensearch/data
+    mem_limit: ${OPENSEARCH_MEM_LIMIT:-0}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+  # Cache and full page cache. When it is full, it drops the least recently used entries, which is what a cache should do.
+  valkey:
+    image: valkey/valkey:8.1
+    restart: unless-stopped
+    command: ["valkey-server", "--maxmemory", "${VALKEY_MAXMEMORY:-512mb}", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Sessions, in their own instance: an eviction policy applies to the whole instance, so sessions next to the cache
+  # could be dropped (shoppers and admins logged out) whenever the cache fills up. Here nothing is ever evicted, and
+  # sessions are saved to disk so they survive a restart.
+  valkey-sessions:
+    image: valkey/valkey:8.1
+    restart: unless-stopped
+    command: ["valkey-server", "--maxmemory-policy", "noeviction", "--save", "300 1"]
+    volumes:
+      - sessions:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # PHP-FPM 8.3 with Composer: runs Magento, and bin/magento through bin/magento on the host.
+  php:
+    <<: *php
+    mem_limit: ${PHP_MEM_LIMIT:-0}
+
+  # Magento's cron, every minute, with the same image. It waits while the store is not installed yet or is in
+  # maintenance mode (during an update).
+  cron:
+    <<: *php
+    user: www-data
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          if [ -f app/etc/env.php ] && [ ! -f var/.maintenance.flag ]; then
+            php bin/magento cron:run 2>&1 | grep -v 'Ran jobs by schedule' || true
+          fi
+          sleep 60
+        done
+
+  # nginx with Magento's own rules (nginx.conf.sample, in the store root once Magento is downloaded).
+  web:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    environment:
+      HYVA_DOMAIN: ${HYVA_DOMAIN:-hyva.invalid}
+      HYVA_STORE_CODE: ${HYVA_STORE_CODE:-hyva}
+      NGINX_ENVSUBST_FILTER: ^HYVA_
+    volumes:
+      - code:/var/www/html:ro
+      - media:/var/www/html/pub/media:ro
+      - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./docker/nginx/fastcgi_params:/etc/nginx/fastcgi_params:ro
+    depends_on:
+      - php
+
+  # Caddy: HTTPS (or plain HTTP behind Cloudflare), optional password protection, reverse proxy to nginx.
+  # TLS_MODE picks its configuration file: docker/caddy/<TLS_MODE>.Caddyfile.
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    command: ["caddy", "run", "--config", "/etc/caddy/${TLS_MODE:-letsencrypt}.Caddyfile", "--adapter", "caddyfile"]
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      LUMA_DOMAIN: ${LUMA_DOMAIN:?Set LUMA_DOMAIN in .env}
+      HYVA_DOMAIN: ${HYVA_DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      CADDY_AUTH: auth${BASIC_AUTH_USER:+-on}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:-}
+      BASIC_AUTH_OPEN_PATHS: ${BASIC_AUTH_OPEN_PATHS:-/rest/* /irios-sw.js /media/*}
+    volumes:
+      - ./docker/caddy:/etc/caddy:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
+volumes:
+  code:
+  media:
+  db:
+  opensearch:
+  sessions:
+  caddy-data:
+  caddy-config:

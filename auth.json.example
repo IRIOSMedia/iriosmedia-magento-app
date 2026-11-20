@@ -1,0 +1,12 @@
+{
+  "http-basic": {
+    "repo.magento.com": {
+      "username": "<public key: commercemarketplace.adobe.com, My Profile, Access Keys>",
+      "password": "<private key>"
+    },
+    "hyva-themes.repo.packagist.com": {
+      "username": "token",
+      "password": "<optional: your Hyvä license key, only with HYVA_SOURCE=packagist>"
+    }
+  }
+}

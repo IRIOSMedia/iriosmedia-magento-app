@@ -1,0 +1,21 @@
+# TLS_MODE=cloudflare-flexible: Cloudflare's proxy serves HTTPS to shoppers and talks plain HTTP to this server
+# (Cloudflare SSL/TLS mode "Flexible"). Caddy only listens on port 80, with no certificate of its own.
+#
+# Requests are trusted as coming from Cloudflare only from Cloudflare's address ranges (cloudflare-ips.caddy): from
+# those, Caddy takes the shopper's IP address from CF-Connecting-IP.
+{
+	auto_https off
+	servers {
+		import /etc/caddy/cloudflare-ips.caddy
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+import /etc/caddy/store.caddy
+
+:80 {
+	# Shoppers always reach Cloudflare over HTTPS ("Always Use HTTPS" on). Cloudflare says so in X-Forwarded-Proto too;
+	# setting it here makes sure nginx and Magento see https (Caddy keeps it: the request comes from a trusted proxy).
+	request_header X-Forwarded-Proto https
+	import store
+}

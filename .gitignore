@@ -1,0 +1,9 @@
+# Your own settings and keys: never commit them
+.env
+auth.json
+
+# Backups contain the database and app/etc/env.php (passwords and the encryption key)
+backups/
+
+# Build output
+dist/

@@ -1,0 +1,37 @@
+# Shared by every TLS_MODE file: password protection and the reverse proxy to nginx.
+# Values in {$...} come from the environment (docker-compose.yml, from .env).
+
+# Password protection (HTTP basic auth). docker-compose.yml sets CADDY_AUTH to "auth-on" when BASIC_AUTH_USER is set
+# in .env, and to "auth" (nothing) when it is empty.
+(auth) {
+}
+
+(auth-on) {
+	# Everything asks for the password except BASIC_AUTH_OPEN_PATHS (by default "/rest/* /irios-sw.js /media/*"):
+	# - /rest/*: the IRIOS Media sync service reads the store through Magento's REST API, and it authenticates with
+	#   its Magento integration token in the Authorization header. A browser password would need that same header,
+	#   so the sync service could not get in. The REST API has its own authentication: Magento checks the token.
+	# - /irios-sw.js: the push service worker. Browsers check it for updates in the background, without the password.
+	@protected not path {$BASIC_AUTH_OPEN_PATHS}
+	basic_auth @protected {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+}
+
+# The store: compression, password protection and the reverse proxy to nginx, which picks the store view from the
+# host name. Caddy sends X-Forwarded-Proto (the scheme the shopper used), X-Forwarded-For and X-Forwarded-Host by
+# itself; nginx turns X-Forwarded-Proto=https into HTTPS=on, so Magento builds https:// links and does not redirect.
+(store) {
+	import {$CADDY_AUTH}
+
+	encode zstd gzip
+
+	reverse_proxy web:80 {
+		# The shopper's IP address (behind Cloudflare, from CF-Connecting-IP), for nginx and Magento
+		header_up X-Real-IP {client_ip}
+	}
+
+	log {
+		output stdout
+	}
+}
