@@ -36,6 +36,7 @@ fi
 for var in DB_PASSWORD DB_ROOT_PASSWORD; do
     [[ ${!var:-} =~ ^change-me ]] && die "Set $var in .env (for example with: openssl rand -hex 24)."
 done
+[[ ${ADMIN_PATH:-admin} =~ ^[A-Za-z0-9_]+$ ]] || die "ADMIN_PATH in .env may only have letters, digits and _ (Magento rejects anything else), for example backoffice_7f3k."
 [[ ${ADMIN_EMAIL:-} == *@* ]] || die "Set ADMIN_EMAIL in .env."
 [[ ${TWO_FACTOR:-off} =~ ^(on|off)$ ]] || die "TWO_FACTOR must be on or off."
 [[ ${SAMPLE_DATA:-yes} =~ ^(yes|no)$ ]] || die "SAMPLE_DATA must be yes or no."

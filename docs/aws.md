@@ -235,7 +235,7 @@ cp auth.json.example auth.json
 | `TLS_MODE` | `letsencrypt` (the default), or `cloudflare-flexible` behind Cloudflare ([step 15](#15-behind-cloudflare)) |
 | `ACME_EMAIL` | Your email: Let's Encrypt writes here if a certificate has a problem (not used behind Cloudflare) |
 | `ADMIN_EMAIL` | The admin's email |
-| `ADMIN_PATH` | A less obvious admin path than `admin`, for example `backoffice-7f3k` |
+| `ADMIN_PATH` | A less obvious admin path than `admin`, for example `backoffice_7f3k` (letters, digits and `_` only) |
 | `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Each one the output of `openssl rand -hex 24` |
 | Memory settings | The small profile values on a 2 GB server ([step 1](#the-small-memory-profile-2-gb)) |
 
