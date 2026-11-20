@@ -109,8 +109,7 @@ if ! in_php test -f app/etc/env.php; then
         --search-engine=opensearch --opensearch-host=opensearch --opensearch-port=9200 \
         --cache-backend=redis --cache-backend-redis-server=valkey --cache-backend-redis-db=0 \
         --page-cache=redis --page-cache-redis-server=valkey --page-cache-redis-db=1 \
-        --session-save=redis --session-save-redis-host=valkey-sessions --session-save-redis-db=0 \
-        --cleanup-database=0
+        --session-save=redis --session-save-redis-host=valkey-sessions --session-save-redis-db=0
     echo "Installed."
 fi
 
