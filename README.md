@@ -132,8 +132,9 @@ browsers send to your own computer without any setup, and HTTPS certificates fro
    ```
 
    The first run downloads Magento and its sample data (a few gigabytes) and installs everything, so it takes a while:
-   about 20 to 40 minutes. At the end, it prints the addresses and the admin password. **The password is shown only
-   once**, so save it in your password manager.
+   about 20 to 40 minutes. At the end, it prints the addresses and the admin password. The password is also kept in
+   `admin-password.txt` (readable only by you), in case the run stops halfway: save it in your password manager and
+   then delete that file.
 
 6. Open `https://luma.localhost/` (and `https://hyva.localhost/`). Your browser warns that the certificate is not
    trusted, because it comes from Caddy's local authority. You have two options:

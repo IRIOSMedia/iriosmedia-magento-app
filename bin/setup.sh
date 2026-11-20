@@ -112,6 +112,10 @@ if ! in_php test -f app/etc/env.php; then
         --page-cache=redis --page-cache-redis-server=valkey --page-cache-redis-db=1 \
         --session-save=redis --session-save-redis-host=valkey-sessions --session-save-redis-db=0
     echo "Installed."
+    if [[ -n $NEW_PASSWORD ]]; then
+        # Kept right away (only you can read it), so a later step that fails cannot lose it
+        (umask 077 && printf 'Magento admin\n  user: %s\n  password: %s\n' "${ADMIN_USER:-admin}" "$NEW_PASSWORD" > admin-password.txt)
+    fi
 fi
 
 # --- Sample data ---------------------------------------------------------------------------------------------------------
@@ -216,7 +220,7 @@ echo "Admin:       ${LUMA_URL}${ADMIN_PATH:-admin}  (user: ${ADMIN_USER:-admin})
 if [[ -n $NEW_PASSWORD ]]; then
     echo
     echo "Admin password: $NEW_PASSWORD"
-    echo "This is the only time it is shown: keep it in your password manager now."
+    echo "Keep it in your password manager now, then delete admin-password.txt (it holds a copy, readable only by you)."
 fi
 [[ -n ${BASIC_AUTH_USER:-} ]] && echo "The browser asks first for the password protection user ($BASIC_AUTH_USER)."
 echo

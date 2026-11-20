@@ -7,3 +7,4 @@ backups/
 
 # Build output
 dist/
+admin-password.txt

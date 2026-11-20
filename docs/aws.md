@@ -275,8 +275,13 @@ bin/setup.sh
 If the connection drops, connect again and run `tmux attach -t setup` to see it.
 
 The first run downloads Magento and the sample data and builds everything: about 20 to 40 minutes on a `t3.large`,
-and up to an hour on a `t3.small`. At the end it prints the addresses and the admin password. **The password is
-shown only once**: save it in your password manager.
+and up to an hour on a `t3.small`. At the end it prints the addresses and the admin password. The password is also
+kept in `admin-password.txt` (readable only by you), in case the run stops halfway: save it in your password manager
+and then delete that file.
+
+If you ever lose it, set a new one with `bin/magento admin:user:create --admin-user=admin --admin-password='<new
+password>' --admin-email=<email> --admin-firstname=Store --admin-lastname=Admin` (with an existing user name, it
+changes that user's password).
 
 ## 9. Check HTTPS
 
