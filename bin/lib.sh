@@ -58,7 +58,17 @@ in_php() { docker compose exec -T -u www-data php "$@"; }
 # The same, with Composer's credentials.
 in_php_auth() { docker compose exec -T -u www-data -e COMPOSER_AUTH="$(composer_auth)" php "$@"; }
 magento() { in_php php bin/magento "$@"; }
-composer() { in_php_auth composer --no-interaction --no-progress "$@"; }
+# --no-progress only exists on the commands that download packages; Composer rejects it on the others (config, show…).
+composer() {
+    local command="$1"
+    shift
+    case "$command" in
+        create-project | install | update | require | remove | reinstall)
+            in_php_auth composer --no-interaction "$command" --no-progress "$@" ;;
+        *)
+            in_php_auth composer --no-interaction "$command" "$@" ;;
+    esac
+}
 
 # A SQL query in the database, with the credentials the db container already has.
 sql() {
@@ -73,8 +83,7 @@ IRIOS_PACKAGE=iriosmedia/module-irios-media
 
 # Configures where Composer gets the module from (IRIOS_MODULE_SOURCE) and installs or updates it.
 #   git        clones IRIOS_MODULE_REF into irios-media/source and uses its src/ folder as a Composer "path"
-#              repository: the module's composer.json is in src/, not at the root of its git repository, so Composer
-#              cannot read the git repository directly.
+#              repository, so any branch or commit can be installed, also before it is released.
 #   release    downloads the zip of the GitHub release into irios-media/artifacts, a Composer "artifact" repository.
 #   packagist  the package from Packagist.
 install_irios_module() {
