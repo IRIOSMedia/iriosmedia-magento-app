@@ -93,7 +93,7 @@ if ! in_php test -f app/etc/env.php; then
     password="${ADMIN_PASSWORD:-}"
     if [[ -z $password ]]; then
         # Magento wants letters and digits: a random one, with both for sure
-        password="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 20)7a"
+        password="$(openssl rand -base64 48 | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-20)7a"
         NEW_PASSWORD="$password"
     fi
     secure=0
