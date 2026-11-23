@@ -162,6 +162,9 @@ build_production() {
     is_small && warn "Small server: this step can take 10 minutes or more."
     local locales="${MAGENTO_LOCALE:-en_US}"
     [[ $locales == en_US ]] || locales="$locales en_US"   # the admin stays in English
+    # The deploy keeps files already in pub/static, so an updated module would still serve its old JS and CSS:
+    # start from empty (pub/static/.htaccess stays)
+    in_php sh -c 'rm -rf pub/static/frontend pub/static/adminhtml pub/static/deployed_version.txt var/view_preprocessed'
     # shellcheck disable=SC2086
     magento setup:static-content:deploy -f --jobs "$jobs" $locales
     magento cache:flush
