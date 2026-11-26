@@ -231,7 +231,7 @@ Or from the command line: `bin/magento config:set oauth/consumer/enable_integrat
 
 ```bash
 curl -s -H "Authorization: Bearer <access token>" \
-  "https://shop.example.com/rest/default/V1/irios-media/orders?limit=1"
+  "https://shop.example.com/rest/default/V1/irios-media/v1/orders?limit=1"
 ```
 
 It should answer `[{"data": [...], "next_cursor": ...}]` (an empty `data` list is fine before the first paid order).
